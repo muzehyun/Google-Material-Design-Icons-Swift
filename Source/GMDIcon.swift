@@ -10,11 +10,11 @@ public extension UIButton {
         
         if let titleLabel = titleLabel {
             
-            FontLoader.loadFontIfNeeded()
+            _ = FontLoader.shared
             let font = UIFont(name: GMDStruct.FontName, size: titleLabel.font.pointSize)
             assert(font != nil, GMDStruct.ErrorAnnounce)
             titleLabel.font = font!
-            setTitle(icon.text, forState: state)
+            setTitle(icon.text, for: state)
         }
     }
 }
@@ -30,7 +30,7 @@ public extension UILabel {
             
             if let newValue = newValue {
                 
-                FontLoader.loadFontIfNeeded()
+                _ = FontLoader.shared
                 let googleMaterialDesignFont = UIFont(name: GMDStruct.FontName, size: self.font.pointSize)
                 assert(googleMaterialDesignFont != nil, GMDStruct.ErrorAnnounce)
                 font = googleMaterialDesignFont!
@@ -41,7 +41,7 @@ public extension UILabel {
         get {
             if let text = text {
                 
-                if let index =  GMDIcons.indexOf(text) {
+                if let index =  GMDIcons.index(of: text) {
                     return GMDType(rawValue: index)
                 }
             }
@@ -57,11 +57,11 @@ public extension UIBarButtonItem {
     */
     func setGMDIcon(icon: GMDType, iconSize: CGFloat) {
         
-        FontLoader.loadFontIfNeeded()
+        _ = FontLoader.shared
         let font = UIFont(name: GMDStruct.FontName, size: iconSize)
         
         assert(font != nil, GMDStruct.ErrorAnnounce)
-        setTitleTextAttributes([NSFontAttributeName: font!], forState: .Normal)
+        setTitleTextAttributes([NSAttributedStringKey.font: font!], for: .normal)
         title = icon.text
     }
     
@@ -71,17 +71,17 @@ public extension UIBarButtonItem {
     var GMDIcon: GMDType? {
         set {
             
-            FontLoader.loadFontIfNeeded()
+            _ = FontLoader.shared
             let font = UIFont(name: GMDStruct.FontName, size: 23)
             assert(font != nil,GMDStruct.ErrorAnnounce)
-            setTitleTextAttributes([NSFontAttributeName: font!], forState: .Normal)
+            setTitleTextAttributes([NSAttributedStringKey.font: font!], for: .normal)
             title = newValue?.text
         }
         
         get {
             if let title = title {
                 
-                if let index =  GMDIcons.indexOf(title) {
+                if let index =  GMDIcons.index(of: title) {
                     return GMDType(rawValue: index)
                 }
             }
@@ -100,37 +100,32 @@ private struct GMDStruct {
 
 private class FontLoader {
     
-    struct Static {
-        static var onceToken : dispatch_once_t = 0
-    }
+    static let shared = FontLoader()
     
-    static func loadFontIfNeeded() {
-        if (UIFont.fontNamesForFamilyName(GMDStruct.FontName).count == 0) {
+    private init() {
+        print("--- FontLoader init ---")
+        if (UIFont.fontNames(forFamilyName: GMDStruct.FontName).count == 0) {
+            let bundle = Bundle(for: FontLoader.self)
+            var fontURL: URL?
+            let identifier = bundle.bundleIdentifier
+        
+            if identifier?.hasPrefix("org.cocoapods") == true {
+                fontURL = bundle.url(forResource: GMDStruct.FileFontName, withExtension: "ttf", subdirectory: "Google-Material-Design-Icons-Swift.bundle")!
+            } else {
+                
+                fontURL = bundle.url(forResource: GMDStruct.FileFontName, withExtension: "ttf")!
+            }
+            let data = NSData(contentsOf: fontURL!)!
             
-            dispatch_once(&Static.onceToken) {
-                let bundle = NSBundle(forClass: FontLoader.self)
-                var fontURL = NSURL()
-                let identifier = bundle.bundleIdentifier
+            let provider = CGDataProvider(data: data)
+            let font = CGFont.init(provider!)
+        
+            var error: Unmanaged<CFError>?
+            if !CTFontManagerRegisterGraphicsFont(font!, &error) {
                 
-                if identifier?.hasPrefix("org.cocoapods") == true {
-                    
-                    fontURL = bundle.URLForResource(GMDStruct.FileFontName, withExtension: "ttf", subdirectory: "Google-Material-Design-Icons-Swift.bundle")!
-                } else {
-                    
-                    fontURL = bundle.URLForResource(GMDStruct.FileFontName, withExtension: "ttf")!
-                }
-                let data = NSData(contentsOfURL: fontURL)!
-                
-                let provider = CGDataProviderCreateWithCFData(data)
-                let font = CGFontCreateWithDataProvider(provider)!
-                
-                var error: Unmanaged<CFError>?
-                if !CTFontManagerRegisterGraphicsFont(font, &error) {
-                    
-                    let errorDescription: CFStringRef = CFErrorCopyDescription(error!.takeUnretainedValue())
-                    let nsError = error!.takeUnretainedValue() as AnyObject as! NSError
-                    NSException(name: NSInternalInconsistencyException, reason: errorDescription as String, userInfo: [NSUnderlyingErrorKey: nsError]).raise()
-                }
+                let errorDescription: CFString = CFErrorCopyDescription(error!.takeUnretainedValue())
+                let nsError = error!.takeUnretainedValue() as AnyObject as! NSError
+                NSException(name: NSExceptionName.internalInconsistencyException, reason: errorDescription as String, userInfo: [NSUnderlyingErrorKey: nsError]).raise()
             }
         }
     }
